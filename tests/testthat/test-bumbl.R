@@ -3,7 +3,7 @@ bombus_sub <-
   bombus %>%
   filter(colony %in% c(67, 9, 14, 82, 83, 46, 92)) %>%
   group_by(colony) %>%
-  mutate(count = as.integer(mass) - min(as.integer(mass))) %>%
+  mutate(count = as.integer((mass - min(mass)) / 20)) %>%
   ungroup()
 
 bombus_67 <- bombus %>% filter(colony == 67)

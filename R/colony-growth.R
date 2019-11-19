@@ -44,7 +44,7 @@ brkpt <- function(data, taus = NULL, t, formula, family = gaussian(link = "log")
   #Check that time variable is in the formula
   if (!tvar %in% attr(fterms, "term.labels")) {
     abort(paste0("'",tvar,"' is missing from the model formula"))
-    }
+  }
 
   #Check that at least some taus are in range of t
   if (all(taus > max(data[[tvar]])) | all(taus < min(data[[tvar]]))) {
@@ -87,6 +87,98 @@ brkpt <- function(data, taus = NULL, t, formula, family = gaussian(link = "log")
 
   return(tibble(tau = tau_win, model = list(m_win)))
 }
+
+#' Fit breakpoint model to individual colony
+#'
+#' Fits models using a range of taus and picks the best one using maximum
+#' liklihood
+#'
+#' @param data a dataframe or tibble
+#' @param taus an optional vector of taus to test. If not supplied, `seq(min(t),
+#'   max(t), length.out = 50)` will be used
+#' @param t the unquoted column name for the time variable in `data`
+#' @param formula a formula passed to `glm()` or `glm.nb()`.  This should include the time
+#'   variable supplied to `t`
+#' @param family passed to `glm()`
+#' @param ... additional arguments passed to `glm()` or `glm.nb()`
+#' @return a tibble with a column for the winning tau and a column for the
+#'   winning model
+#'
+#' @import dplyr
+#' @import rlang
+#' @import glm2
+#' @importFrom stats update logLik terms poisson as.formula gaussian
+#'
+#' @keywords internal
+#'
+#' @examples
+#' testbees <- bombus[bombus$colony == 9, ]
+#' # Using dates
+#' \dontrun{
+#' brkpt(testbees, t = date, formula = mass ~ date)
+#' # Using weeks
+#' brkpt(testbees, t = week, formula = mass ~ week)
+#' }
+brkpt2 <- function(data, taus = NULL, t, formula, family = gaussian(link = "log"), ...) {
+  #TODO: make sure none of the variables are called '.post'?
+  fterms <- terms(formula)
+  t <- enquo(t)
+  tvar <-as_name(t)
+  # fam <- enquo(family)
+  more_args <- list2(...)
+
+  if (is.null(taus)) {
+    tvec <- data[[tvar]]
+    taus <- seq(min(tvec), max(tvec), length.out = 50)
+  }
+
+  #Check that time variable is in the formula
+  if (!tvar %in% attr(fterms, "term.labels")) {
+    abort(paste0("'",tvar,"' is missing from the model formula"))
+    }
+
+  #Check that at least some taus are in range of t
+  if (all(taus > max(data[[tvar]])) | all(taus < min(data[[tvar]]))) {
+    abort(paste0("At least one tau must be in range of '", tvar, "'"))
+  }
+  #If some taus are out of range of t, drop them
+  if (any(taus > max(data[[tvar]])) |
+      any(taus < min(data[[tvar]]))) {
+    warning(paste0(
+      "Some taus were not used because they were outside of range of '",
+      tvar,
+      "'"
+    ))
+    taus <-
+      taus[taus <= max(data[[tvar]]) & taus >= min(data[[tvar]])]
+  }
+
+  # adds `.post` to formula. Would not be difficult to modify for other interactions
+  f <- update(formula, ~. + .post)
+  LLs <- c()
+
+
+  for (i in 1:length(taus)) {
+    usetau <- taus[i]
+    data2 <- mutate(data, .post = ifelse(!!t <= usetau, 0, !!t - usetau))
+    m0 <- exec("glm2", formula = f, family = family, data = data2, !!!more_args)
+    LLs[i] <- logLik(m0)
+  }
+
+  tau_win <- taus[which(LLs == max(LLs))]
+
+  # if multiple equivalent taus are found, this should fail
+  if (length(tau_win) > 1) {
+    abort("More than one equivalent tau found")
+  }
+  #TODO: I don't really like that it re-fits the model.  I could have it save them all and only re-fit in the case of a tau tie.
+  data_win <- mutate(data, .post = ifelse(!!t <= tau_win, 0, !!t - tau_win))
+
+  m_win <- exec("glm2", formula = f, family = family, data = data_win, !!!more_args)
+
+  return(tibble(tau = tau_win, model = list(m_win)))
+}
+
 
 
 #' @describeIn brkpt
@@ -222,7 +314,7 @@ brkpt.nb <- function(data, taus = NULL, t, formula, link = "log", ...) {
 #'
 #' bombus2 <- bombus[bombus$colony != 67, ]
 #' bumbl(bombus2, colonyID = colony, t = week, formula = mass ~ week)
-bumbl <- function(data, colonyID = NULL, t, formula, family = gaussian(link = "log"), augment = FALSE, taus = NULL, ...) {
+bumbl2 <- function(data, colonyID = NULL, t, formula, family = gaussian(link = "log"), augment = FALSE, taus = NULL, ...) {
   #TODO: scoop up all the warnings from brkpt() and present a summary at the
   #end.
 
@@ -266,7 +358,7 @@ bumbl <- function(data, colonyID = NULL, t, formula, family = gaussian(link = "l
   resultdf <-
     purrr::map2_df(dflist,
                    names(dflist),
-                   ~brkpt_w_err(brkpt(data = .x,
+                   ~brkpt_w_err(brkpt2(data = .x,
                                       taus = {{taus}},
                                       t = !!t,
                                       formula = formula,
