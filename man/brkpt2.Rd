@@ -2,40 +2,13 @@
 % Please edit documentation in R/colony-growth.R
 \name{brkpt2}
 \alias{brkpt2}
-\title{Fit breakpoint model to individual colony}
+\title{Same as brkpt but uses glm2
+Same as brkpt but uses glm2}
 \usage{
 brkpt2(data, taus = NULL, t, formula, family = gaussian(link = "log"),
   ...)
 }
-\arguments{
-\item{data}{a dataframe or tibble}
-
-\item{taus}{an optional vector of taus to test. If not supplied, \code{seq(min(t), max(t), length.out = 50)} will be used}
-
-\item{t}{the unquoted column name for the time variable in \code{data}}
-
-\item{formula}{a formula passed to \code{glm()} or \code{glm.nb()}.  This should include the time
-variable supplied to \code{t}}
-
-\item{family}{passed to \code{glm()}}
-
-\item{...}{additional arguments passed to \code{glm()} or \code{glm.nb()}}
-}
-\value{
-a tibble with a column for the winning tau and a column for the
-winning model
-}
 \description{
-Fits models using a range of taus and picks the best one using maximum
-liklihood
+Same as brkpt but uses glm2
+Same as brkpt but uses glm2
 }
-\examples{
-testbees <- bombus[bombus$colony == 9, ]
-# Using dates
-\dontrun{
-brkpt(testbees, t = date, formula = mass ~ date)
-# Using weeks
-brkpt(testbees, t = week, formula = mass ~ week)
-}
-}
-\keyword{internal}

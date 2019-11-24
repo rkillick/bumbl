@@ -89,6 +89,77 @@ brkpt <- function(data, taus = NULL, t, formula, family = gaussian(link = "log")
 }
 
 
+
+#' Same as brkpt but uses glm2
+#' Same as brkpt but uses glm2
+#'
+#' @describeIn brkpt
+#' @import dplyr
+#' @import rlang
+#' @import glm2
+#' @importFrom stats update logLik terms poisson as.formula gaussian
+#' @return
+#'
+brkpt2 <- function(data, taus = NULL, t, formula, family = gaussian(link = "log"), ...) {
+  #TODO: make sure none of the variables are called '.post'?
+  fterms <- terms(formula)
+  t <- enquo(t)
+  tvar <-as_name(t)
+  # fam <- enquo(family)
+  more_args <- list2(...)
+
+  if (is.null(taus)) {
+    tvec <- data[[tvar]]
+    taus <- seq(min(tvec), max(tvec), length.out = 50)
+  }
+
+  #Check that time variable is in the formula
+  if (!tvar %in% attr(fterms, "term.labels")) {
+    abort(paste0("'",tvar,"' is missing from the model formula"))
+  }
+
+  #Check that at least some taus are in range of t
+  if (all(taus > max(data[[tvar]])) | all(taus < min(data[[tvar]]))) {
+    abort(paste0("At least one tau must be in range of '", tvar, "'"))
+  }
+  #If some taus are out of range of t, drop them
+  if (any(taus > max(data[[tvar]])) |
+      any(taus < min(data[[tvar]]))) {
+    warning(paste0(
+      "Some taus were not used because they were outside of range of '",
+      tvar,
+      "'"
+    ))
+    taus <-
+      taus[taus <= max(data[[tvar]]) & taus >= min(data[[tvar]])]
+  }
+
+  # adds `.post` to formula. Would not be difficult to modify for other interactions
+  f <- update(formula, ~. + .post)
+  LLs <- c()
+
+
+  for (i in 1:length(taus)) {
+    usetau <- taus[i]
+    data2 <- mutate(data, .post = ifelse(!!t <= usetau, 0, !!t - usetau))
+    m0 <- exec("glm2", formula = f, family = family, data = data2, !!!more_args)
+    LLs[i] <- logLik(m0)
+  }
+
+  tau_win <- taus[which(LLs == max(LLs))]
+
+  # if multiple equivalent taus are found, this should fail
+  if (length(tau_win) > 1) {
+    abort("More than one equivalent tau found")
+  }
+  #TODO: I don't really like that it re-fits the model.  I could have it save them all and only re-fit in the case of a tau tie.
+  data_win <- mutate(data, .post = ifelse(!!t <= tau_win, 0, !!t - tau_win))
+
+  m_win <- exec("glm2", formula = f, family = family, data = data_win, !!!more_args)
+
+  return(tibble(tau = tau_win, model = list(m_win)))
+}
+
 #' @describeIn brkpt
 #' @param link passed to `glm.nb()`
 #'
@@ -327,7 +398,121 @@ bumbl <- function(data, colonyID = NULL, t, formula, family = gaussian(link = "l
 }
 
 
+#' same as bumbl but uses brkpt2
+#' same as bumbl but uses brkpt2
+#'
+#' @describeIn bumbl
+#'
+#' @import tidyr
+#' @import rlang
+#' @import dplyr
+#' @importFrom purrr map map_dbl map2_df
+#' @import broom
+#' @importFrom glue glue
+#'
+#' @return
+#' @export
+#'
+bumbl2 <- function(data, colonyID = NULL, t, formula, family = gaussian(link = "log"), augment = FALSE, taus = NULL, ...) {
+  #TODO: scoop up all the warnings from brkpt() and present a summary at the
+  #end.
 
+  colonyID <- enquo(colonyID)
+  t <- enquo(t)
+  # family <- enquo(family)
+  more_args <- list2(...)
+
+  if (quo_is_null(colonyID)) {
+    df <- data
+    dflist <- list("NA" = data)
+    colonyID <- "colony"
+
+  } else {
+    df <-
+      data %>%
+      # make sure colonyID is a character vector
+      mutate(!!colonyID := as.character(!!colonyID)) %>%
+      group_by(!!colonyID)
+
+    dflist <- group_split(df)
+    names(dflist) <- group_keys(group_by(data, !!colonyID))[[1]]
+  }
+
+  model_list <- vector("list", length(dflist))
+  names(model_list) <- names(dflist)
+
+  brkpt_w_err <- function(code, colonyID) {
+    tryCatch(
+      code,
+      error = function(c) {
+        message(
+          glue::glue(
+            "Warning: {c$message} for colonyID '{colonyID}'. Omitting from results."
+          )
+        )
+      }
+    )
+  }
+
+  resultdf <-
+    purrr::map2_df(dflist,
+                   names(dflist),
+                   ~brkpt_w_err(brkpt2(data = .x,
+                                      taus = {{taus}},
+                                      t = !!t,
+                                      formula = formula,
+                                      family = family,
+                                      !!!more_args),
+                                .y),
+                   .id = as_name(colonyID))
+
+  predictdf <-
+    resultdf %>%
+    dplyr::select(-"tau") %>%
+    mutate(aug = purrr::map(.data$model, broom::augment)) %>%
+    unnest(.data$aug) %>%
+    dplyr::select(!!colonyID, !!t, ".fitted", ".se.fit", ".resid")
+
+  modeldf <-
+    resultdf %>%
+    mutate(coefs = purrr::map(.data$model, broom::tidy)) %>%
+    unnest(.data$coefs) %>%
+    dplyr::select(!!colonyID, "tau", "model", "term", "estimate") %>%
+    spread(key = "term", value = "estimate") %>%
+    mutate(logNmax = purrr::map_dbl(.data$model, ~ max(predict(.), na.rm = TRUE))) %>%
+    dplyr::select(-"model") %>%
+    dplyr::select(
+      !!colonyID,
+      "tau",
+      logN0 = "(Intercept)",
+      logLam = !!t,
+      decay = ".post",
+      "logNmax",
+      everything()
+    )
+
+  if (augment == TRUE) {
+    augmented_df <-
+      left_join(df, modeldf, by = as_name(colonyID))
+
+    full_augmented_df <-
+      left_join(augmented_df, predictdf, by = c(as_name(colonyID), as_name(t)))
+
+    #add attributes
+    attr(full_augmented_df, "colonyID") <- as_name(colonyID)
+    attr(full_augmented_df, "t") <- as_name(t)
+    attr(full_augmented_df, "formula") <- formula
+    attributes(full_augmented_df)
+
+    class(full_augmented_df) <- c(class(full_augmented_df), "bumbldf")
+
+    return(full_augmented_df)
+
+  } else {
+    return(modeldf)
+  }
+
+}
 
 
 #' @describeIn bumbl

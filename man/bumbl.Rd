@@ -2,10 +2,14 @@
 % Please edit documentation in R/colony-growth.R
 \name{bumbl}
 \alias{bumbl}
+\alias{bumbl2}
 \alias{bumbl.nb}
 \title{Estimate colony growth, switch point, and decay parameters}
 \usage{
 bumbl(data, colonyID = NULL, t, formula, family = gaussian(link =
+  "log"), augment = FALSE, taus = NULL, ...)
+
+bumbl2(data, colonyID = NULL, t, formula, family = gaussian(link =
   "log"), augment = FALSE, taus = NULL, ...)
 
 bumbl.nb(data, colonyID = NULL, t, formula, link = "log",
@@ -71,6 +75,8 @@ may vary among colonies. The model is described further in Crone and Williams (2
 }
 \section{Functions}{
 \itemize{
+\item \code{bumbl2}: 
+
 \item \code{bumbl.nb}: 
 }}
 

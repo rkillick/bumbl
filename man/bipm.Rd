@@ -5,7 +5,7 @@
 \title{Integral Projection Model for Bumblebee Colony Growth}
 \usage{
 bipm(larv_surv = 0.980419283573345, dev_time_mean = 23.5670474993181,
-  wkr_size_min = 2.5, wkr_size_max = 5.81, wkr_size_mean = 3.600687,
+  wkr_size_min = 2.5, wkr_size_max = 5.81, wkr_size_mean = 3.647895,
   wkr_size_sd = 0.4276681, poln_per_cell = 0.016, prop_foraging = 1,
   wkr_mass_f = mass_func, wkr_surv_f = surv_func,
   p_forage_f = forage_func, p_poln_ret_f = poln_ret_func,
