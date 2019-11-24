@@ -2,7 +2,7 @@
 #'
 #' @param bumbldf A dataframe produced by `bumbl()` with `augment = TRUE`
 #'
-#' @return currently doesn't return an object, just prints plots
+#' @return Nothing.  Called for side-effects (plotting)
 #'
 #' @import rlang
 #' @import dplyr
@@ -17,7 +17,7 @@
 #'                  formula = log(mass) ~ week, augment = TRUE)
 #' bumbl_plot(results)
 bumbl_plot <- function(bumbldf) {
-  if(!inherits(bumbldf, "bumbldf")) {
+  if (!inherits(bumbldf, "bumbldf")) {
     abort("bumbl_plot() only works on dataframes output by bumbl() with augment = TRUE")
   }
   colonyID <- attr(bumbldf, "colonyID")

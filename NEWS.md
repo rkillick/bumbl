@@ -5,6 +5,7 @@
 * Added `...` argument to `bumbl()` and `bumbl.nb()` to pass additional arguments (e.g. offset) to `glm()` and `glm.nb()` respectively
 * added change in mass to `bombus` data
 * now requires tidyr version 1.0.0 or greater
+* new function, `bipm()` to calculate colony growth using integral projection models
 
 
 # bumbl 0.0.1

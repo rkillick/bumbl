@@ -10,7 +10,7 @@ bumbl_plot(bumbldf)
 \item{bumbldf}{A dataframe produced by \code{bumbl()} with \code{augment = TRUE}}
 }
 \value{
-currently doesn't return an object, just prints plots
+Nothing.  Called for side-effects (plotting)
 }
 \description{
 Plot observed and fitted results from bumbl()

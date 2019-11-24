@@ -10,8 +10,8 @@ lildf <-
 
 test_that("plotting function displays something?", {
   results <-
-    bumbl(lildf, colonyID = colony, t = week, formula = d.mass ~ week,
-          augment = TRUE)
+    suppressWarnings(bumbl(lildf, colonyID = colony, t = week, formula = d.mass ~ week,
+                           augment = TRUE))
   expect_invisible(bumbl_plot(results))
 })
 
@@ -20,6 +20,7 @@ test_that("plotting function errors when not a bumbl(augment = TRUE) object", {
                "bumbl_plot() only works on dataframes output by bumbl() with augment = TRUE",
                fixed = TRUE)
 })
+
 
 test_that("plotting works with count data", {
   results_count <-

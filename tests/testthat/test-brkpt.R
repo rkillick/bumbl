@@ -64,6 +64,7 @@ test_that("brkpt works with poisson dist", {
   expect_is(count.model$model[[1]], "glm")
 })
 
+
 test_that("brkpt.nb works with overdispersed data", {
   negbin.model <- brkpt.nb(testcount, t = week, formula = count ~ week)
   expect_s3_class(negbin.model, "data.frame")
